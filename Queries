@@ -1,0 +1,173 @@
+-- 1 Calculate Total Sales;
+
+SELECT sum(sales) TOTAL_sales 
+FROM order_file;
+
+-- 2 Top 5 highest selling products
+
+SELECT sub_category,
+SUM(sales) total_sales
+FROM order_file
+GROUP BY 1
+LIMIT 5;
+
+-- 3 Find the region with the highest profit
+
+SELECT region,
+ROUND(sum(profit),2) total_profit
+FROM order_file
+GROUP BY 1
+ORDER BY total_profit DESC;
+
+-- 4 Monthly Sales Trend
+
+SELECT DISTINCT DATE_FORMAT(order_date, '%Y - %b') Months, 
+SUM(sales) Total_sales
+FROM order_file
+GROUP BY 1
+ORDER BY MONTHS;
+
+-- 5 Orders who made negative profit
+
+SELECT ORDER_ID,
+ROUND(sum(profit),2) total_profit
+FROM order_file
+GROUP BY 1
+HAVING sum(profit)<0
+ORDER BY total_profit ASC
+LIMIT 20;
+
+-- 6 Top customers by revenue
+
+SELECT customer_name, sum(sales) Revenue
+FROM order_file
+GROUP BY 1
+ORDER BY Revenue DESC;
+
+-- 7 Most profitable sub-category in each region
+
+WITH REGION_PROFIT AS
+(
+							select sub_category,region,
+							ROUND(SUM(profit) OVER(PARTITION BY region,sub_category),2) Total_Profit
+							FROM order_file
+)
+SELECT Region,sub_category,total_profit
+										FROM (
+										SELECT *,
+										ROW_NUMBER() OVER(PARTITION BY region ORDER BY total_profit DESC) ranking
+										FROM region_profit
+										) T1
+WHERE ranking =  1
+ORDER BY TOTAL_PROFIT DESC;
+								--	 OR  --
+                                
+WITH REGION_PROFIT AS
+(
+    SELECT 
+        sub_category,
+        region,
+        ROUND(SUM(profit), 2) AS Total_Profit
+    FROM order_file
+    GROUP BY 1, 2
+)
+SELECT 
+    sub_category,
+    region,
+    Total_profit
+FROM (
+    SELECT *,
+           ROW_NUMBER() OVER(
+               PARTITION BY region 
+               ORDER BY total_profit DESC
+           ) AS RANKING
+    FROM region_profit
+) T1
+WHERE RANKING = 1
+ORDER BY TOTAL_PROFIT DESC;
+
+-- 8 Category wise performance
+
+select category,sum(sales) total_sales,ROUND(sum(profit),2) total_profit
+FROM order_file
+GROUP BY 1
+ORDER BY 3 DESC;
+
+-- 9 Discount ka profit par impact
+
+select discount,ROUND(avg(profit),2) profit from 
+ORDER_FILE GROUP BY 1
+ORDER BY Profit DESC;
+
+-- 10 Sabse zyada quantity kis product ki bikti hai?
+
+select * from order_file;
+
+select product_id,sum(quantity) quantity_sold
+FROM order_file
+GROUP BY 1
+ORDER BY quantity_sold DESC
+LIMIT 10;
+
+-- 11 Country Wise Sale Ranking
+
+SELECT * from order_file;
+
+select country,sum(sales) total_sales,
+RANK() OVER(ORDER BY sum(sales) DESC) Country_Rank
+FROM order_file
+GROUP BY 1;
+
+-- 12 Top 3 products in each category
+WITH product AS (
+					SELECT category,product_id,sum(sales) total_sales
+                    FROM order_file
+                    GROUP BY 1,2
+                    ORDER BY total_sales DESC
+                    )
+select 
+category,product_id,total_sales 
+FROM ( select *,
+RANK() OVER(partition BY category ORDER By total_sales DESC ) ranking
+FROM product) T
+Where ranking<=3;
+
+-- 13 Running Total of Sales
+
+SELECT order_date,SUM(sales) Daily_Sales,
+SUM(SUM(sales)) OVER(ORDER BY order_date 
+						ROWS BETWEEN UNBOUNDED PRECEDING 
+								AND CURRENT ROW) Running_Total
+FROM order_file
+GROUP BY 1;
+
+-- Find the Repeat Customers
+
+Select customer_name,count(*) Total_Order
+FROM order_file
+GROUP BY 1
+HAVING COUNT(*)>1
+ORDER BY 2 DESC;
+
+-- Find The profit Ration Category Wise
+
+select category, 
+					ROUND((SUM(profit) / Sum(sales)*100),2) profit_ratio
+FROM order_file
+GROUP BY 1;
+
+-- Most profitable sub-category in each region
+
+select * from order_file limit 10;
+
+WITH Category_Profit AS (
+Select region,sub_category,ROUND(sum(profit),2) Total_Profit
+FROM order_file
+GROUP BY 1,2
+ORDER BY Total_Profit DESC
+) 
+SELECT Region,sub_category,Total_profit FROM  (
+									SELECT *,
+									RANK() OVER(PARTITION BY region ORDER BY Total_Profit DESC) rnk
+									FROM category_profit ) T2
+WHERE rnk<=1;
